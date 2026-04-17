@@ -1,1 +1,54 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: #fff5f8; font-family: 'Hiragino Maru Gothic Pro', sans-serif; display: flex; flex-direction: column; align-items: center; }
+        #game-container { width: 320px; height: 480px; background: #fff; border: 8px solid #ffdae9; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .candy { width: 40px; height: 40px; position: absolute; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; justify-content: center; align-items: center; font-size: 24px; border-radius: 10px; }
+        .score-board { margin: 10px; font-size: 20px; color: #ff85a1; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="score-board">Score: <span id="score">0</span></div>
+    <div id="game-container"></div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score');
+        const items = ['🍮', '🍩', '🍰', '🍭', '🍓'];
+        let score = 0;
+
+        // 初期配置
+        function init() {
+            for(let row=0; row<10; row++) {
+                for(let col=0; col<7; col++) {
+                    createCandy(row, col);
+                }
+            }
+        }
+
+        function createCandy(row, col) {
+            const candy = document.createElement('div');
+            candy.className = 'candy';
+            candy.innerHTML = items[Math.floor(Math.random() * items.length)];
+            candy.style.left = (col * 45 + 5) + 'px';
+            candy.style.top = (row * 45 + 5) + 'px';
+            
+            candy.onclick = () => {
+                candy.style.transform = 'scale(0)';
+                score += 10;
+                scoreEl.innerText = score;
+                setTimeout(() => {
+                    candy.innerHTML = items[Math.floor(Math.random() * items.length)];
+                    candy.style.transform = 'scale(1)';
+                }, 500);
+            };
+            
+            container.appendChild(candy);
+        }
+        init();
+    </script>
+</body>
+</html>
