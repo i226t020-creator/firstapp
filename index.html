@@ -1,54 +1,474 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1枚絵になる動物パズル</title>
     <style>
-        body { background: #fff5f8; font-family: 'Hiragino Maru Gothic Pro', sans-serif; display: flex; flex-direction: column; align-items: center; }
-        #game-container { width: 320px; height: 480px; background: #fff; border: 8px solid #ffdae9; border-radius: 20px; position: relative; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .candy { width: 40px; height: 40px; position: absolute; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; justify-content: center; align-items: center; font-size: 24px; border-radius: 10px; }
-        .score-board { margin: 10px; font-size: 20px; color: #ff85a1; font-weight: bold; }
+        /* --- 共通の絵柄設定（変数化） --- */
+        :root {
+            --puzzle-bg: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300"><rect width="300" height="300" fill="%23ffd700"/><circle cx="150" cy="150" r="100" fill="%23fffacd"/><circle cx="110" cy="130" r="15" fill="%23333"/><circle cx="190" cy="130" r="15" fill="%23333"/><path d="M 130 180 Q 150 210 170 180" fill="none" stroke="%23333" stroke-width="10" stroke-linecap="round"/><ellipse cx="80" cy="160" rx="20" ry="10" fill="%23ff69b4" opacity="0.6"/><ellipse cx="220" cy="160" rx="20" ry="10" fill="%23ff69b4" opacity="0.6"/></svg>');
+        }
+
+        /* --- 全体のスタイル --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #fff0f5;
+            font-family: 'Hiragino Rounded Gothic ProN', 'M PLUS Rounded 1c', 'Quicksand', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #5c4033;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 10px 0;
+            font-size: 24px;
+            color: #ff8c00;
+            text-shadow: 2px 2px 0px #ffe4b5;
+        }
+
+        /* --- UI周りのスタイル --- */
+        .info-panel {
+            display: flex;
+            justify-content: center;
+            width: 302px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            transition: color 0.3s;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            background-color: #ffa07a;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #cd5c5c;
+            transition: all 0.1s;
+            font-family: inherit;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #cd5c5c;
+        }
+
+        button:disabled {
+            background-color: #d3d3d3;
+            box-shadow: 0 4px 0 #a9a9a9;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* --- パズル盤面のスタイル --- */
+        #puzzle-board {
+            width: 302px; /* タイル(96*3) + 隙間(2*2) + 余白(5*2) = 302 */
+            height: 302px;
+            background-color: #deb887;
+            border-radius: 10px;
+            padding: 5px;
+            position: relative;
+            box-sizing: border-box; /* paddingを含めたサイズにする */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2), 0 8px 15px rgba(0,0,0,0.2);
+            touch-action: none; 
+        }
+
+        .tile {
+            width: 96px;
+            height: 96px;
+            background-color: white;
+            border-radius: 8px;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: transparent;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: top 0.15s ease, left 0.15s ease;
+            user-select: none;
+            
+            background-image: var(--puzzle-bg);
+            background-size: 292px 292px; /* 隙間を含めたパズル全体のサイズ */
+        }
+
+        .tile.empty {
+            background: none;
+            box-shadow: none;
+            cursor: default;
+        }
+
+        /* --- 完成時の1枚絵（フェードイン用） --- */
+        #full-image {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 292px;
+            height: 292px;
+            border-radius: 8px;
+            background-image: var(--puzzle-bg);
+            background-size: 292px 292px;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease; /* スーッと1枚絵になるアニメーション */
+            z-index: 5;
+        }
+
+        #full-image.show {
+            opacity: 1;
+        }
+
+        /* --- メッセージオーバーレイ --- */
+        #message-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7); /* 後ろの絵が見えるように少し薄く */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 10px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        #message-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #message-text {
+            font-size: 28px;
+            color: #ff69b4;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 2px 2px 4px white, -2px -2px 4px white;
+        }
+        
+        .hint {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #888;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <div class="score-board">Score: <span id="score">0</span></div>
-    <div id="game-container"></div>
+
+    <h1>動物スライドパズル</h1>
+
+    <div class="info-panel">
+        <div id="status-text">タップして遊び始めよう！</div>
+    </div>
+
+    <div id="puzzle-board">
+        <!-- 1枚に繋がった完成絵（最初は表示） -->
+        <div id="full-image" class="show"></div>
+        
+        <!-- タイルはJavaScriptで生成されます -->
+        
+        <!-- クリア時のメッセージ -->
+        <div id="message-overlay" style="cursor: pointer;">
+            <div id="message-text">ぴったり完成！✨</div>
+            <div style="font-size: 14px; color: #666; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 10px;">タップして崩す</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="start-btn">ぐちゃぐちゃにする</button>
+    </div>
+    
+    <div class="hint">
+        タイルをタップして、好きなだけスライドさせよう
+    </div>
 
     <script>
-        const container = document.getElementById('game-container');
-        const scoreEl = document.getElementById('score');
-        const items = ['🍮', '🍩', '🍰', '🍭', '🍓'];
-        let score = 0;
+        // --- 設定と変数 ---
+        const gridSize = 3; // 3x3のパズル
+        const tileSize = 96; // 1タイルのサイズ(px)
+        const tileGap = 2;   // タイル間の隙間(px)
+        const boardPadding = 5; // 盤面の余白(px)
+        
+        let tiles = [];      // タイルの状態を管理する配列 (0が空きマス)
+        let emptyPos = { row: 2, col: 2 }; // 空きマスの現在位置
+        let isShuffling = false; // シャッフル中かどうか（連打防止用）
 
-        // 初期配置
+        // DOM要素の取得
+        const boardEl = document.getElementById('puzzle-board');
+        const statusEl = document.getElementById('status-text');
+        const startBtn = document.getElementById('start-btn');
+        const messageOverlay = document.getElementById('message-overlay');
+        const fullImageEl = document.getElementById('full-image');
+
+        // --- 初期化処理 ---
         function init() {
-            for(let row=0; row<10; row++) {
-                for(let col=0; col<7; col++) {
-                    createCandy(row, col);
+            createBoard();
+            drawBoard();
+            
+            startBtn.addEventListener('click', startGame);
+            
+            // オーバーレイをタップして消せるようにする
+            messageOverlay.addEventListener('click', hideOverlayAndFullImage);
+        }
+
+        // 完成状態やメッセージを消して、自由に動かせる状態にする
+        function hideOverlayAndFullImage() {
+            messageOverlay.classList.remove('show');
+            fullImageEl.classList.remove('show');
+            statusEl.textContent = "自由に動かしてね";
+            statusEl.style.color = "#5c4033";
+        }
+
+        // 盤面データの作成 (正解の状態)
+        function createBoard() {
+            tiles = [];
+            let count = 1;
+            for (let row = 0; row < gridSize; row++) {
+                tiles[row] = [];
+                for (let col = 0; col < gridSize; col++) {
+                    if (row === gridSize - 1 && col === gridSize - 1) {
+                        tiles[row][col] = 0; // 右下を空きマスにする
+                    } else {
+                        tiles[row][col] = count++;
+                    }
+                }
+            }
+            emptyPos = { row: gridSize - 1, col: gridSize - 1 };
+        }
+
+        // 盤面をHTMLに描画する
+        function drawBoard() {
+            // 既存のタイルを削除（オーバーレイや1枚絵は残す）
+            const oldTiles = boardEl.querySelectorAll('.tile');
+            oldTiles.forEach(t => t.remove());
+
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    const tileValue = tiles[row][col];
+                    
+                    const tileEl = document.createElement('div');
+                    tileEl.className = 'tile';
+                    
+                    tileEl.dataset.row = row;
+                    tileEl.dataset.col = col;
+                    
+                    const x = boardPadding + col * (tileSize + tileGap);
+                    const y = boardPadding + row * (tileSize + tileGap);
+                    tileEl.style.left = `${x}px`;
+                    tileEl.style.top = `${y}px`;
+
+                    if (tileValue === 0) {
+                        tileEl.classList.add('empty');
+                    } else {
+                        tileEl.textContent = tileValue;
+                        
+                        // 画像の切り出し位置を設定
+                        const correctRow = Math.floor((tileValue - 1) / gridSize);
+                        const correctCol = (tileValue - 1) % gridSize;
+                        
+                        const bgX = -(correctCol * (tileSize + tileGap));
+                        const bgY = -(correctRow * (tileSize + tileGap));
+                        
+                        tileEl.style.backgroundPosition = `${bgX}px ${bgY}px`;
+
+                        // クリック(タップ)イベント
+                        tileEl.addEventListener('click', function() {
+                            const currentRow = parseInt(this.dataset.row, 10);
+                            const currentCol = parseInt(this.dataset.col, 10);
+                            handleTileClick(currentRow, currentCol);
+                        });
+                    }
+                    
+                    // full-image の下に配置するため appendChild を使う
+                    // message-overlayが一番上に来るようにする
+                    boardEl.insertBefore(tileEl, messageOverlay);
                 }
             }
         }
 
-        function createCandy(row, col) {
-            const candy = document.createElement('div');
-            candy.className = 'candy';
-            candy.innerHTML = items[Math.floor(Math.random() * items.length)];
-            candy.style.left = (col * 45 + 5) + 'px';
-            candy.style.top = (row * 45 + 5) + 'px';
-            
-            candy.onclick = () => {
-                candy.style.transform = 'scale(0)';
-                score += 10;
-                scoreEl.innerText = score;
-                setTimeout(() => {
-                    candy.innerHTML = items[Math.floor(Math.random() * items.length)];
-                    candy.style.transform = 'scale(1)';
-                }, 500);
-            };
-            
-            container.appendChild(candy);
+        // --- ゲームロジック ---
+
+        // タイルがクリックされた時の処理
+        function handleTileClick(row, col) {
+            if (isShuffling) return;
+
+            // 1枚絵が表示されている（完成状態）時にタップされたら、絵をパズルに分割する
+            if (fullImageEl.classList.contains('show')) {
+                hideOverlayAndFullImage();
+            }
+
+            // クリックされたタイルが空きマスの隣接しているかチェック
+            if (isAdjacent(row, col, emptyPos.row, emptyPos.col)) {
+                moveTile(row, col);
+            }
         }
+
+        // 隣接判定
+        function isAdjacent(r1, c1, r2, c2) {
+            const rowDiff = Math.abs(r1 - r2);
+            const colDiff = Math.abs(c1 - c2);
+            return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+        }
+
+        // タイルを移動させる
+        function moveTile(row, col) {
+            const clickedTileEl = document.querySelector(`.tile[data-row="${row}"][data-col="${col}"]`);
+            const emptyTileEl = document.querySelector(`.tile.empty`);
+
+            // 新しい位置の計算
+            const newX = boardPadding + emptyPos.col * (tileSize + tileGap);
+            const newY = boardPadding + emptyPos.row * (tileSize + tileGap);
+            const emptyNewX = boardPadding + col * (tileSize + tileGap);
+            const emptyNewY = boardPadding + row * (tileSize + tileGap);
+
+            // CSSでアニメーション移動
+            clickedTileEl.style.left = `${newX}px`;
+            clickedTileEl.style.top = `${newY}px`;
+            emptyTileEl.style.left = `${emptyNewX}px`;
+            emptyTileEl.style.top = `${emptyNewY}px`;
+
+            // データの更新
+            tiles[emptyPos.row][emptyPos.col] = tiles[row][col];
+            tiles[row][col] = 0;
+
+            clickedTileEl.dataset.row = emptyPos.row;
+            clickedTileEl.dataset.col = emptyPos.col;
+            emptyTileEl.dataset.row = row;
+            emptyTileEl.dataset.col = col;
+
+            emptyPos = { row: row, col: col };
+
+            // 移動直後にクリア判定（完成していたらお祝い演出へ）
+            if (checkWin()) {
+                // アニメーション(0.15s)が終わる頃に1枚絵にする
+                setTimeout(gameClear, 150);
+            }
+        }
+
+        // クリア（完成）判定
+        function checkWin() {
+            let count = 1;
+            for (let row = 0; row < gridSize; row++) {
+                for (let col = 0; col < gridSize; col++) {
+                    if (row === gridSize - 1 && col === gridSize - 1) {
+                        if (tiles[row][col] !== 0) return false;
+                    } else {
+                        if (tiles[row][col] !== count++) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // ゲームクリア（完成）時の演出
+        function gameClear() {
+            statusEl.textContent = "完成！";
+            statusEl.style.color = "#ff69b4";
+            
+            // 右下の欠けや隙間を埋めて、1枚の完全な絵をフェードイン
+            fullImageEl.classList.add('show');
+
+            // 1枚絵になった少し後にメッセージを出す
+            setTimeout(() => {
+                messageOverlay.classList.add('show');
+            }, 400);
+        }
+
+        // --- シャッフル処理 ---
+
+        function startGame() {
+            if (isShuffling) return;
+            isShuffling = true;
+
+            hideOverlayAndFullImage();
+            statusEl.textContent = "ぐちゃぐちゃにしてます...";
+            statusEl.style.color = "#5c4033";
+            startBtn.disabled = true;
+            
+            const allTiles = document.querySelectorAll('.tile');
+            allTiles.forEach(t => t.style.transition = 'none');
+
+            shuffleBoard();
+            
+            setTimeout(() => {
+                allTiles.forEach(t => t.style.transition = 'top 0.15s ease, left 0.15s ease');
+                isShuffling = false;
+                statusEl.textContent = "自由に動かしてね";
+                startBtn.disabled = false;
+            }, 50);
+        }
+
+        function shuffleBoard() {
+            createBoard();
+            
+            const shuffleCount = 150;
+            let prevMove = null;
+
+            for (let i = 0; i < shuffleCount; i++) {
+                const possibleMoves = getPossibleMoves(emptyPos.row, emptyPos.col);
+                let validMoves = possibleMoves;
+                
+                if (prevMove) {
+                    validMoves = possibleMoves.filter(m => !(m.row === prevMove.row && m.col === prevMove.col));
+                    if (validMoves.length === 0) validMoves = possibleMoves;
+                }
+
+                const randomMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+                
+                tiles[emptyPos.row][emptyPos.col] = tiles[randomMove.row][randomMove.col];
+                tiles[randomMove.row][randomMove.col] = 0;
+                
+                prevMove = { row: emptyPos.row, col: emptyPos.col };
+                emptyPos = { row: randomMove.row, col: randomMove.col };
+            }
+
+            drawBoard();
+            
+            if(checkWin()) shuffleBoard();
+        }
+
+        function getPossibleMoves(emptyRow, emptyCol) {
+            const moves = [];
+            if (emptyRow > 0) moves.push({ row: emptyRow - 1, col: emptyCol });
+            if (emptyRow < gridSize - 1) moves.push({ row: emptyRow + 1, col: emptyCol });
+            if (emptyCol > 0) moves.push({ row: emptyRow, col: emptyCol - 1 });
+            if (emptyCol < gridSize - 1) moves.push({ row: emptyRow, col: emptyCol + 1 });
+            return moves;
+        }
+
+        // 起動時に初期化
         init();
+
     </script>
 </body>
 </html>
+
